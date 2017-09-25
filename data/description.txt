@@ -1,0 +1,61 @@
+scenario_id: BBOB-2009-to-2015
+performance_measures:
+    - relERT
+    - ERT
+maximize:
+    - false
+    - false
+performance_type: 
+    - quality
+    - quality
+algorithm_cutoff_time: '?'
+algorithm_cutoff_memory: '?'
+features_cutoff_time: '?'
+features_cutoff_memory: '?'
+number_of_feature_steps: 0
+feature_steps: 
+  'None': 
+    provides: 'None'
+default_steps:
+  'None': 'None'
+features_cutoff_memory: '?'
+features_cutoff_time: '?'
+features_deterministic:
+features_stochastic:
+metainfo_algorithms:
+  BSqi:
+    configuration: ''
+    deterministic: true
+  BSrr:
+    configuration: ''
+    deterministic: true
+  CMA-CSA:
+    configuration: ''
+    deterministic: true
+  fmincon:
+    configuration: ''
+    deterministic: true
+  fminunc:
+    configuration: ''
+    deterministic: true
+  HCMA:
+    configuration: ''
+    deterministic: true
+  HMLSL:
+    configuration: ''
+    deterministic: true
+  IPOP400D:
+    configuration: ''
+    deterministic: true
+  MCS:
+    configuration: ''
+    deterministic: true
+  MLSL:
+    configuration: ''
+    deterministic: true
+  OQNLP:
+    configuration: ''
+    deterministic: true
+  SMAC-BBOB:
+    configuration: ''
+    deterministic: true
