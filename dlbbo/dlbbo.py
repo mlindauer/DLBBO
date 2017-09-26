@@ -14,6 +14,8 @@ from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras.optimizers import SGD
 
+import matplotlib.pyplot as plt
+
 from dlbbo.scenario.aslib_scenario import ASlibScenarioDL
 
 
@@ -26,6 +28,7 @@ class DLBBO(object):
         self.logger = logging.getLogger("DLBBO")
         
         self.IMAGE_SIZE = 64 # pixel
+        self.EPOCHS = 1000
 
     def main(self):
         '''
@@ -35,6 +38,9 @@ class DLBBO(object):
         scenario, inst_image_map = self.read_data()
 
         sum_qual = 0
+        sbs_idx = np.argmin(scenario.performance_data.sum(axis=0).values)
+        y_sel = []
+        y_sbs = []
         for test_inst in scenario.instances:
             print(test_inst)
             X_train, y_train, X_test, y_test, n_classes = \
@@ -49,14 +55,19 @@ class DLBBO(object):
                 print(p)
                 pred_algo_idx = np.argmax(p)
                 qual = scenario.performance_data.ix[test_inst,pred_algo_idx]
-                print(qual)
-                sum_qual += qual
-        self.logger.info("Average Quality: %f" %(sum_qual/len(scenario.instances)))
-        vbs = scenario.performance_data.min(axis=1).sum()
-        sbs = scenario.performance_data.sum(axis=0).min()
+                sbs_qual = scenario.performance_data.ix[test_inst,sbs_idx]
+                print(qual, sbs_qual)
+                y_sel.append(qual)
+                y_sbs.append(sbs_qual)
+        self.logger.info("Average Quality: %f" %(np.average(y_sel)))
+        vbs = scenario.performance_data.min(axis=1).mean()
+        sbs = scenario.performance_data.mean(axis=0).min()
         self.logger.info("VBS: %f" %(vbs))
         self.logger.info("SBS: %f" %(sbs))
-
+        y_sbs = np.array(y_sbs)
+        y_sel = np.array(y_sel)
+        self.scatter_plot(y_sbs,y_sel)
+        
     def read_data(self):
         '''
             read all scenario files
@@ -125,23 +136,23 @@ class DLBBO(object):
                          input_shape=(self.IMAGE_SIZE, self.IMAGE_SIZE, 1)))
         model.add(Conv2D(32, (3, 3), activation='relu'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
-        # model.add(Dropout(0.25))
+        model.add(Dropout(0.25))
 
         model.add(Conv2D(64, (3, 3), activation='relu'))
         model.add(Conv2D(64, (3, 3), activation='relu'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
-        # model.add(Dropout(0.25))
+        model.add(Dropout(0.25))
 
         model.add(Flatten())
         model.add(Dense(256, activation='relu'))
-        # model.add(Dropout(0.5))
+        model.add(Dropout(0.5))
         model.add(Dense(n_classes, activation='softmax'))
 
-        sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+        sgd = SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
         model.compile(loss='categorical_crossentropy',
                       optimizer=sgd, metrics=['accuracy'])
 
-        model.fit(X_train, y_train, batch_size=32, epochs=42)
+        model.fit(X_train, y_train, batch_size=32, epochs=self.EPOCHS)
         train_score = model.evaluate(X_train, y_train, batch_size=32)
         test_score = model.evaluate(X_test, y_test, batch_size=32)
 
@@ -149,3 +160,19 @@ class DLBBO(object):
         y = model.predict(X_test)
 
         return y
+    
+    def scatter_plot(self, x,y):
+        
+        max_v = np.max((x,y))
+        min_v = np.min((x,y))
+        ax = plt.subplot(111)
+        ax.scatter(x,y)
+        ax.set_xlabel('Single Best')
+        ax.set_ylabel('DNN')
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_xlim([min_v,max_v])
+        ax.set_ylim([min_v,max_v])
+        
+        plt.tight_layout()
+        plt.savefig("scatter.png")
