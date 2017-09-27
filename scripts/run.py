@@ -20,8 +20,10 @@ if __name__ == "__main__":
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     
     parser.add_argument("-s", "--scenario", help="path to scenario infos")
+    parser.add_argument("-m", "--model_type", choices=["VGG-like","MobileNet"], help="path to scenario infos")
 
     args_ = parser.parse_args()
 
-    dlbbo = DLBBO(scenario_dn=args_.scenario)
+    dlbbo = DLBBO(scenario_dn=args_.scenario,
+                  model_type=args_.model_type)
     dlbbo.main()
