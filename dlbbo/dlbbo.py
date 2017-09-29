@@ -14,6 +14,7 @@ from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D
 from keras.optimizers import SGD
 import keras.applications as app_models
+from keras import backend as K
 
 import matplotlib
 matplotlib.use('Agg')
@@ -21,6 +22,8 @@ import matplotlib.pyplot as plt
 
 from dlbbo.scenario.aslib_scenario import ASlibScenarioDL
 
+def as_loss(y_true, y_pred):
+            return K.dot(y_true, K.transpose(y_pred))
 
 class DLBBO(object):
 
@@ -34,6 +37,8 @@ class DLBBO(object):
         self.EPOCHS = 1000
 
         self.model_type = model_type
+        self.loss = "categorical_crossentropy"
+        self.loss = "as_loss"
 
     def main(self):
         '''
@@ -114,17 +119,36 @@ class DLBBO(object):
                 #X = np.reshape(image, (self.IMAGE_SIZE, self.IMAGE_SIZE, 1))
                 X = image
                 perfs = scenario.performance_data.loc[inst].values
-                y = np.argmin(perfs)
+                #y = np.argmin(perfs)
                 if inst != test_inst:
                     X_train.append(X)
-                    y_train.append(y)
+                    y_train.append(perfs)
                 else:
                     X_test.append(X)
-                    y_test.append(y)
+                    y_test.append(perfs)
 
         return np.array(X_train), np.array(y_train), \
             np.array(X_test), np.array(y_test), \
             n_classes
+        
+    def preprocess_y(self, y, n_classes):
+        '''
+            preprocess y for different loss functions
+        '''
+        
+        if self.loss == "categorical_crossentropy":
+            y = np.argmin(y, axis=1)
+            y = keras.utils.to_categorical(y, num_classes=n_classes)
+        elif self.loss == "as_loss" or self.loss == as_loss:
+            self.EPOCHS = 100
+            y = y - np.repeat([np.min(y, axis=1)], y.shape[1], axis=0).T
+            y /= np.max(y)
+            self.loss = as_loss
+        else:
+            raise ValueError("Unkonwn loss function")
+            
+        return y
+            
 
     def train(self, X_train: np.ndarray, y_train: np.ndarray,
               X_test: np.ndarray, y_test: np.ndarray,
@@ -132,9 +156,9 @@ class DLBBO(object):
         '''
             train model, VGG-like network
         '''
-
-        y_train = keras.utils.to_categorical(y_train, num_classes=n_classes)
-        y_test = keras.utils.to_categorical(y_test, num_classes=n_classes)
+        
+        y_train = self.preprocess_y(y_train, n_classes)
+        y_test = self.preprocess_y(y_test, n_classes)
 
         if self.model_type == "VGG-like":
             model = self.get_vgg_model(n_classes=n_classes)
@@ -143,6 +167,14 @@ class DLBBO(object):
             if self.model_type == "MobileNet":
                 self.EPOCHS = 100
                 model = app_models.mobilenet.MobileNet(input_shape=(self.IMAGE_SIZE, self.IMAGE_SIZE, 3), 
+                                                   include_top=False, 
+                                                   weights=None, 
+                                                   classes=n_classes,
+                                                   dropout=1e-2,
+                                                   alpha=0.5)
+            elif self.model_type == "VGG16":
+                self.EPOCHS = 100
+                model = app_models.vgg16.VGG16(input_shape=(self.IMAGE_SIZE, self.IMAGE_SIZE, 3), 
                                                    include_top=False, 
                                                    weights=None, 
                                                    classes=n_classes)
@@ -154,10 +186,8 @@ class DLBBO(object):
             x = Dense(64, activation='relu')(x)
             pred_layer = Dense(n_classes, activation='softmax')(x)
             model = Model(inputs=model.input, outputs=pred_layer)
-            sgd = SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
-            model.compile(optimizer=sgd, loss='categorical_crossentropy',
-                          metrics=['accuracy'])
-
+            sgd = SGD(lr=0.01, decay=1e-3, momentum=0.9, nesterov=True)
+            model.compile(optimizer=sgd, loss=self.loss)
 
         model.fit(X_train, y_train, batch_size=32, epochs=self.EPOCHS)
         train_score = model.evaluate(X_train, y_train, batch_size=32)
@@ -174,7 +204,7 @@ class DLBBO(object):
         # input: 128x128 images with 1 channel -> (128, 128, 1) tensors.
         # this applies 32 convolution filters of size 3x3 each.
         model.add(Conv2D(32, (3, 3), activation='relu',
-                         input_shape=(self.IMAGE_SIZE, self.IMAGE_SIZE, 1)))
+                         input_shape=(self.IMAGE_SIZE, self.IMAGE_SIZE, 3)))
         model.add(Conv2D(32, (3, 3), activation='relu'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
         model.add(Dropout(0.25))
@@ -190,8 +220,7 @@ class DLBBO(object):
         model.add(Dense(n_classes, activation='softmax'))
 
         sgd = SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
-        model.compile(loss='categorical_crossentropy',
-                      optimizer=sgd, metrics=['accuracy'])
+        model.compile(loss=self.loss, optimizer=sgd)
 
         return model
 
@@ -209,4 +238,4 @@ class DLBBO(object):
         ax.set_ylim([min_v, max_v])
 
         plt.tight_layout()
-        plt.savefig("scatter.png")
+        plt.savefig("scatter_%s.png" %(self.model_type))

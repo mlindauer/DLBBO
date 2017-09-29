@@ -20,7 +20,7 @@ if __name__ == "__main__":
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     
     parser.add_argument("-s", "--scenario", help="path to scenario infos")
-    parser.add_argument("-m", "--model_type", choices=["VGG-like","MobileNet"], help="path to scenario infos")
+    parser.add_argument("-m", "--model_type", choices=["VGG-like","MobileNet", "VGG16"], help="path to scenario infos")
 
     args_ = parser.parse_args()
 
