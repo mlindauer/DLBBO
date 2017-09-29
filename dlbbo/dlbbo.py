@@ -27,7 +27,9 @@ def as_loss(y_true, y_pred):
 
 class DLBBO(object):
 
-    def __init__(self, scenario_dn: str, model_type: str="VGG-like"):
+    def __init__(self, scenario_dn: str, 
+                 model_type: str="VGG-like",
+                 verbose:int=1):
         ''' Constructor '''
 
         self.scenario_dn = scenario_dn
@@ -37,6 +39,7 @@ class DLBBO(object):
         self.EPOCHS = 1000
 
         self.model_type = model_type
+        self.verbose = verbose
         self.loss = "categorical_crossentropy"
         self.loss = "as_loss"
 
@@ -189,7 +192,8 @@ class DLBBO(object):
             sgd = SGD(lr=0.01, decay=1e-3, momentum=0.9, nesterov=True)
             model.compile(optimizer=sgd, loss=self.loss)
 
-        model.fit(X_train, y_train, batch_size=32, epochs=self.EPOCHS)
+        model.fit(X_train, y_train, batch_size=32, epochs=self.EPOCHS,
+                  verbose=self.verbose)
         train_score = model.evaluate(X_train, y_train, batch_size=32)
         test_score = model.evaluate(X_test, y_test, batch_size=32)
 
